@@ -1,0 +1,98 @@
+{
+  "name": "memoant",
+  "title": "Memoant",
+  "description": "Meeting recorder with AI transcription",
+  "icon": "extension-icon.png",
+  "author": "kylenorthup",
+  "categories": ["Productivity"],
+  "license": "MIT",
+  "preferences": [
+    {
+      "name": "meetingsPath",
+      "title": "Meetings Folder",
+      "description": "Path to Obsidian meetings folder",
+      "type": "textfield",
+      "default": "~/Code/vault/kylnor/02 - Store/Meetings",
+      "required": false
+    },
+    {
+      "name": "scriptPath",
+      "title": "Script Path",
+      "description": "Path to record-meeting.sh",
+      "type": "textfield",
+      "default": "~/Code/meeting-recorder/record-meeting.sh",
+      "required": false
+    }
+  ],
+  "commands": [
+    {
+      "name": "record-audio",
+      "title": "Record Audio",
+      "subtitle": "Memoant",
+      "description": "Start audio-only meeting recording",
+      "mode": "no-view",
+      "icon": "mic-icon.png"
+    },
+    {
+      "name": "record-screen",
+      "title": "Record Screen",
+      "subtitle": "Memoant",
+      "description": "Start screen recording with window picker",
+      "mode": "no-view",
+      "icon": "screen-icon.png"
+    },
+    {
+      "name": "stop-recording",
+      "title": "Stop Recording",
+      "subtitle": "Memoant",
+      "description": "Stop current recording and process",
+      "mode": "no-view",
+      "icon": "stop-icon.png"
+    },
+    {
+      "name": "meeting-history",
+      "title": "Meeting History",
+      "subtitle": "Memoant",
+      "description": "Browse past meeting notes and recordings",
+      "mode": "view",
+      "icon": "history-icon.png"
+    },
+    {
+      "name": "recording-status",
+      "title": "Recording Status",
+      "subtitle": "Memoant",
+      "description": "Check current recording status",
+      "mode": "view",
+      "icon": "status-icon.png"
+    },
+    {
+      "name": "menu-bar",
+      "title": "Memoant Menu Bar",
+      "subtitle": "Memoant",
+      "description": "Menu bar extra showing recording status",
+      "mode": "menu-bar",
+      "icon": "mic-icon.png",
+      "interval": "2s"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.93.3",
+    "@raycast/utils": "^1.19.1"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/node": "22.13.4",
+    "@types/react": "19.0.8",
+    "eslint": "^8.57.1",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.3"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint",
+    "prepublishOnly": "echo \"Error: no publish\" && exit 1",
+    "publish": "npx @raycast/api@latest publish"
+  }
+}

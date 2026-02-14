@@ -1,0 +1,13 @@
+.env*
+venv/
+node_modules/
+__pycache__/
+*.pyc
+credentials.json
+token.json
+*.key
+.DS_Store
+*.log
+.claude/
+dist/
+build/
