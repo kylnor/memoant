@@ -29,7 +29,7 @@ NC='\033[0m'
 INSTALL_DIR="${MEMOANT_DIR:-$HOME/Code/meeting-recorder}"
 CONFIG_DIR="$HOME/.config/memoant"
 CONFIG_FILE="$CONFIG_DIR/config"
-REPO_URL="https://github.com/kylenorthup/meeting-recorder.git"
+REPO_URL="https://github.com/kylnor/memoant.git"
 
 # Counters
 INSTALLED=0

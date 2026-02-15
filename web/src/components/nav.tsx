@@ -40,7 +40,7 @@ export function Nav() {
             Install
           </a>
           <a
-            href="https://github.com/kylenorthup/meeting-recorder"
+            href="https://github.com/kylnor/memoant"
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm text-muted hover:text-foreground transition-colors"
@@ -111,7 +111,7 @@ export function Nav() {
             Install
           </a>
           <a
-            href="https://github.com/kylenorthup/meeting-recorder"
+            href="https://github.com/kylnor/memoant"
             target="_blank"
             rel="noopener noreferrer"
             className="block text-sm text-muted hover:text-foreground"

@@ -38,7 +38,7 @@ export default function Home() {
               Get Started
             </a>
             <a
-              href="https://github.com/kylenorthup/meeting-recorder"
+              href="https://github.com/kylnor/memoant"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center justify-center h-12 px-8 rounded-lg border border-border text-foreground font-medium transition-all hover:bg-surface hover:border-muted"
@@ -385,7 +385,7 @@ export default function Home() {
             <p className="text-muted text-sm">
               Need help? Check the{" "}
               <a
-                href="https://github.com/kylenorthup/meeting-recorder#readme"
+                href="https://github.com/kylnor/memoant#readme"
                 className="text-coral hover:underline"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -417,7 +417,7 @@ export default function Home() {
             {" "}&middot; MIT License &middot; &copy; {new Date().getFullYear()}
           </div>
           <a
-            href="https://github.com/kylenorthup/meeting-recorder"
+            href="https://github.com/kylnor/memoant"
             target="_blank"
             rel="noopener noreferrer"
             className="text-muted hover:text-foreground transition-colors"
