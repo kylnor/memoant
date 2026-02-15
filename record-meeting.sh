@@ -9,28 +9,38 @@
 
 set -euo pipefail
 
-# Load credentials from global env
-source ~/.env
+# Log all output for debugging (especially when run detached from Raycast)
+exec > >(tee -a /tmp/meeting-recorder/memoant.log) 2>&1
 
-# Configuration
+# Resolve script location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GOOGLE_DRIVE_BASE="$HOME/Library/CloudStorage/GoogleDrive-kylenorthup@gmail.com/My Drive/000/03 - Store/Meetings"
-OBSIDIAN_MEETINGS="$HOME/Code/vault/kylnor/02 - Store/Meetings"
+CONFIG_FILE="$HOME/.config/memoant/config"
+
+# Load config (created by install.sh)
+if [[ -f "$CONFIG_FILE" ]]; then
+    source "$CONFIG_FILE"
+fi
+
+# Load credentials (HF_TOKEN, etc.)
+[[ -f "$HOME/.env" ]] && source "$HOME/.env"
+
+# Configuration with defaults (config file values take priority)
+RECORDINGS_DIR="${MEMOANT_RECORDINGS_DIR:-$HOME/Documents/Memoant/Recordings}"
+NOTES_DIR="${MEMOANT_NOTES_DIR:-$HOME/Documents/Memoant/Notes}"
 TEMP_DIR="/tmp/meeting-recorder"
 PID_FILE="$TEMP_DIR/recording.pid"
 MODE_FILE="$TEMP_DIR/recording.mode"
 RECORDING_FILE="$TEMP_DIR/recording.path"
+OLLAMA_MODEL="${MEMOANT_OLLAMA_MODEL:-gpt-oss:20b}"
 
-# Tool paths
-WHISPERX="$HOME/Library/Python/3.9/bin/whisperx"
-OLLAMA="/usr/local/bin/ollama"
-FFMPEG="/opt/homebrew/bin/ffmpeg"
+# Tool paths (auto-detect, config overrides)
+WHISPERX="${MEMOANT_WHISPERX:-$(command -v whisperx 2>/dev/null || echo "$HOME/Library/Python/3.9/bin/whisperx")}"
+OLLAMA="${MEMOANT_OLLAMA:-$(command -v ollama 2>/dev/null || echo "/usr/local/bin/ollama")}"
+FFMPEG="${MEMOANT_FFMPEG:-$(command -v ffmpeg 2>/dev/null || echo "/opt/homebrew/bin/ffmpeg")}"
 WINDOW_RECORDER="$SCRIPT_DIR/WindowRecorder"
 WINDOW_PICKER="$SCRIPT_DIR/WindowPicker"
 
-# Hugging Face token for speaker diarization (loaded from ~/.env)
-# Get token from: https://huggingface.co/settings/tokens
-# Accept terms at: https://huggingface.co/pyannote/speaker-diarization-3.1
+# Hugging Face token for speaker diarization
 export HF_TOKEN="${HF_TOKEN:-}"
 
 # Colors for output
@@ -73,41 +83,58 @@ show_window_picker() {
     echo "$window_index"
 }
 
-check_dependencies() {
+check_recording_deps() {
+    # Only what's needed to START recording
+    if [[ ! -f "$FFMPEG" ]]; then
+        log_error "ffmpeg not found at $FFMPEG"
+        exit 1
+    fi
+}
+
+check_processing_deps() {
+    # What's needed to TRANSCRIBE and PROCESS after recording
     local missing=0
 
-    if [[ ! -f "$WHISPERX" ]]; then
-        log_error "WhisperX not found at $WHISPERX"
-        missing=1
+    if [[ ! -f "$WHISPERX" ]] && ! command -v whisperx &>/dev/null; then
+        log_warning "WhisperX not found - transcription will be skipped"
     fi
 
     if [[ ! -f "$OLLAMA" ]]; then
-        log_error "Ollama not found at $OLLAMA"
-        missing=1
-    fi
-
-    if [[ ! -f "$FFMPEG" ]]; then
-        log_error "ffmpeg not found at $FFMPEG"
-        missing=1
+        log_warning "Ollama not found at $OLLAMA - metadata extraction will be skipped"
     fi
 
     if ! command -v jq &>/dev/null; then
-        log_error "jq not found (required for metadata parsing)"
-        missing=1
+        log_warning "jq not found - metadata parsing may fail"
     fi
 
-    if [[ ! -d "$GOOGLE_DRIVE_BASE" ]]; then
-        log_error "Google Drive not mounted at $GOOGLE_DRIVE_BASE"
-        missing=1
+    # Output dirs checked at save time (see ensure_output_dirs)
+}
+
+safe_mkdir() {
+    # mkdir with a 3s timeout. Any cloud-synced path can hang on any fs op.
+    # Uses perl alarm to enforce timeout even on uninterruptible I/O.
+    local dir="$1"
+    perl -e '
+        $SIG{ALRM} = sub { exit 1 };
+        alarm 3;
+        exec "mkdir", "-p", $ARGV[0];
+    ' "$dir" 2>/dev/null
+}
+
+ensure_output_dirs() {
+    local fallback_recordings="$HOME/Documents/Memoant/Recordings"
+    local fallback_notes="$HOME/Documents/Memoant/Notes"
+
+    if ! safe_mkdir "$RECORDINGS_DIR"; then
+        log_warning "Cannot reach $RECORDINGS_DIR - saving locally"
+        RECORDINGS_DIR="$fallback_recordings"
+        mkdir -p "$RECORDINGS_DIR"
     fi
 
-    if [[ ! -d "$OBSIDIAN_MEETINGS" ]]; then
-        log_error "Obsidian meetings folder not found at $OBSIDIAN_MEETINGS"
-        missing=1
-    fi
-
-    if [[ $missing -eq 1 ]]; then
-        exit 1
+    if ! safe_mkdir "$NOTES_DIR"; then
+        log_warning "Cannot reach $NOTES_DIR - saving locally"
+        NOTES_DIR="$fallback_notes"
+        mkdir -p "$NOTES_DIR"
     fi
 }
 
@@ -137,10 +164,9 @@ start_recording() {
             temp_file="$TEMP_DIR/recording_${timestamp}.m4a"
 
             # Record system audio + microphone using ffmpeg
-            # macOS audio capture using BlackHole or similar virtual audio device
-            # For now, using mic input as placeholder
-            $FFMPEG -f avfoundation -i ":0" -ac 2 -ar 48000 -ab 128k "$temp_file" &
+            nohup $FFMPEG -f avfoundation -i ":0" -ac 2 -ar 48000 -ab 128k "$temp_file" > "$TEMP_DIR/ffmpeg.log" 2>&1 &
             local pid=$!
+            disown $pid
             ;;
 
         screen)
@@ -160,15 +186,17 @@ start_recording() {
             if [[ "$window_index" == "1" ]]; then
                 log_info "Recording entire desktop..."
                 # Record full desktop with ffmpeg
-                $FFMPEG -f avfoundation -i "1:0" -r 30 -s 1920x1080 -c:v libx264 -preset ultrafast "$temp_file" &
+                nohup $FFMPEG -f avfoundation -i "1:0" -r 30 -s 1920x1080 -c:v libx264 -preset ultrafast "$temp_file" > "$TEMP_DIR/ffmpeg.log" 2>&1 &
                 local pid=$!
+                disown $pid
             else
                 # Adjust index for WindowRecorder (since Desktop is first option)
                 local adjusted_index=$((window_index - 1))
                 log_info "Recording window $adjusted_index..."
                 log_info "Command: $WINDOW_RECORDER $temp_file $adjusted_index"
-                $WINDOW_RECORDER "$temp_file" "$adjusted_index" > "$TEMP_DIR/recorder.log" 2>&1 &
+                nohup $WINDOW_RECORDER "$temp_file" "$adjusted_index" > "$TEMP_DIR/recorder.log" 2>&1 &
                 local pid=$!
+                disown $pid
                 log_info "Started WindowRecorder with PID: $pid"
                 sleep 1
                 if kill -0 "$pid" 2>/dev/null; then
@@ -207,6 +235,8 @@ stop_recording() {
         exit 1
     fi
 
+    check_processing_deps
+
     local pid=$(cat "$PID_FILE")
     local mode=$(cat "$MODE_FILE")
     local recording_file=$(cat "$RECORDING_FILE")
@@ -220,7 +250,7 @@ stop_recording() {
     local wait_count=0
     while kill -0 "$pid" 2>/dev/null && [[ $wait_count -lt 10 ]]; do
         sleep 1
-        ((wait_count++))
+        wait_count=$((wait_count + 1))
     done
 
     # Force kill if still running
@@ -334,23 +364,26 @@ process_recording() {
     # Sanitize subject for filename (lowercase, replace spaces with hyphens)
     subject=$(echo "$subject" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 
-    # Create Google Drive folder
-    local gdrive_folder="$GOOGLE_DRIVE_BASE/${date}_${subject}"
-    mkdir -p "$gdrive_folder"
-    log_success "Created folder: $gdrive_folder"
+    # Ensure output dirs exist (with timeout fallback for cloud paths)
+    ensure_output_dirs
 
-    # Move recording to Google Drive
+    # Create recordings folder
+    local recording_folder="$RECORDINGS_DIR/${date}_${subject}"
+    mkdir -p "$recording_folder"
+    log_success "Created folder: $recording_folder"
+
+    # Move recording to output folder
     if [[ "$mode" == "screen" ]]; then
-        mv "$recording_file" "$gdrive_folder/recording.mp4"
+        mv "$recording_file" "$recording_folder/recording.mp4"
         rm -f "$audio_file"  # Clean up extracted audio
-        log_success "Moved video to: $gdrive_folder/recording.mp4"
+        log_success "Moved video to: $recording_folder/recording.mp4"
     else
-        mv "$recording_file" "$gdrive_folder/recording.m4a"
-        log_success "Moved audio to: $gdrive_folder/recording.m4a"
+        mv "$recording_file" "$recording_folder/recording.m4a"
+        log_success "Moved audio to: $recording_folder/recording.m4a"
     fi
 
-    # Create Obsidian markdown note
-    local markdown_file="$OBSIDIAN_MEETINGS/${date}_${subject}.md"
+    # Create markdown note
+    local markdown_file="$NOTES_DIR/${date}_${subject}.md"
     create_markdown_note "$markdown_file" "$title" "$date" "$tags" "$summary" \
         "$key_points" "$action_items" "$decisions" "$formatted_transcript" \
         "${date}_${subject}"
@@ -439,7 +472,7 @@ $transcript
 Return ONLY the JSON object, nothing else:"
 
     # Call Ollama and extract JSON
-    local response=$($OLLAMA run gpt-oss:20b "$prompt" 2>/dev/null)
+    local response=$($OLLAMA run "$OLLAMA_MODEL" "$prompt" 2>/dev/null)
 
     # Try to extract JSON from response (in case it's wrapped in markdown)
     local json=$(echo "$response" | sed -n '/^{/,/^}/p')
@@ -484,7 +517,7 @@ title: $title
 date: $datetime
 attendees: []
 tags: $tags_yaml
-recording: "Google Drive/000/03 - Store/$folder_name"
+recording: "$RECORDINGS_DIR/$folder_name"
 ---
 
 # $title
@@ -514,23 +547,42 @@ EOF
 # Main Entry Point
 #==============================================================================
 
-main() {
-    check_dependencies
+show_status() {
+    echo -e "${BOLD:-}Memoant Configuration${NC}"
+    echo "  Config:      $CONFIG_FILE"
+    echo "  Recordings:  $RECORDINGS_DIR"
+    echo "  Notes:       $NOTES_DIR"
+    echo "  WhisperX:    $WHISPERX"
+    echo "  Ollama:      $OLLAMA ($OLLAMA_MODEL)"
+    echo "  ffmpeg:      $FFMPEG"
+    echo ""
+    if [[ -f "$PID_FILE" ]]; then
+        echo -e "  Status:      ${GREEN}Recording (PID: $(cat "$PID_FILE"), Mode: $(cat "$MODE_FILE"))${NC}"
+    else
+        echo "  Status:      Idle"
+    fi
+}
 
+main() {
     case "${1:-}" in
         audio|screen)
+            check_recording_deps
             start_recording "$1"
             ;;
         stop)
             stop_recording
             ;;
+        status)
+            show_status
+            ;;
         *)
-            echo "Usage: $0 {audio|screen|stop}"
+            echo "Usage: $0 {audio|screen|stop|status}"
             echo ""
             echo "Commands:"
             echo "  audio  - Start audio-only recording"
             echo "  screen - Start screen recording with window selection"
             echo "  stop   - Stop current recording and process"
+            echo "  status - Show configuration and recording status"
             exit 1
             ;;
     esac

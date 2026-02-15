@@ -1,6 +1,6 @@
 import { showHUD, showToast, Toast } from "@raycast/api";
-import { exec } from "child_process";
-import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { spawn } from "child_process";
+import { writeFileSync, mkdirSync, existsSync, openSync } from "fs";
 import { getScriptPath, getRecordingState } from "./shared";
 
 export default async function Command() {
@@ -29,11 +29,28 @@ export default async function Command() {
   }
   writeFileSync(`${tempDir}/recording.start`, String(Date.now()));
 
-  exec(`"${scriptPath}" audio`, (error, _stdout, stderr) => {
-    if (error) {
-      console.error("Recording error:", stderr);
-    }
-  });
+  // Log output for debugging
+  const logFd = openSync("/tmp/meeting-recorder/start.log", "w");
 
-  await showHUD("Recording audio...");
+  // Use spawn with detached + unref so the recording survives Raycast's lifecycle
+  const child = spawn(scriptPath, ["audio"], {
+    detached: true,
+    stdio: ["ignore", logFd, logFd],
+    env: { ...process.env, HOME: process.env.HOME || "" },
+  });
+  child.unref();
+
+  // Give the script a moment to start and write PID file
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+
+  const newState = getRecordingState();
+  if (newState.isRecording) {
+    await showHUD("Recording audio...");
+  } else {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: "Recording failed to start",
+      message: "Check ~/Code/meeting-recorder for logs",
+    });
+  }
 }

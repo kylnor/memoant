@@ -1,5 +1,5 @@
 import { showHUD, showToast, Toast } from "@raycast/api";
-import { exec } from "child_process";
+import { spawn } from "child_process";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import { getScriptPath, getRecordingState } from "./shared";
 
@@ -29,11 +29,13 @@ export default async function Command() {
   }
   writeFileSync(`${tempDir}/recording.start`, String(Date.now()));
 
-  exec(`"${scriptPath}" screen`, (error, _stdout, stderr) => {
-    if (error) {
-      console.error("Recording error:", stderr);
-    }
+  // Use spawn with detached + unref so the recording survives Raycast's lifecycle
+  const child = spawn(scriptPath, ["screen"], {
+    detached: true,
+    stdio: "ignore",
+    env: { ...process.env, HOME: process.env.HOME || "" },
   });
+  child.unref();
 
   await showHUD("Starting screen recording... (select a window)");
 }

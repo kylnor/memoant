@@ -12,7 +12,7 @@
       "title": "Meetings Folder",
       "description": "Path to Obsidian meetings folder",
       "type": "textfield",
-      "default": "~/Code/vault/kylnor/02 - Store/Meetings",
+      "default": "~/Documents/Memoant/Notes",
       "required": false
     },
     {

@@ -8,7 +8,8 @@ export function Nav() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass">
       <div className="max-w-5xl mx-auto flex items-center justify-between h-16 px-6">
-        <a href="#" className="text-xl font-bold tracking-tight">
+        <a href="#" className="flex items-center gap-2 text-xl font-bold tracking-tight">
+          <img src="/logo.png" alt="Memoant" className="w-8 h-8" />
           memoant
         </a>
 

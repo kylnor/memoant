@@ -25,7 +25,21 @@ export function getScriptPath(): string {
 
 export function getMeetingsPath(): string {
   const prefs = getPrefs();
-  return prefs.meetingsPath.replace("~", homedir());
+  let path = prefs.meetingsPath;
+
+  // If using default, check memoant config for user-configured path
+  if (path === "~/Documents/Memoant/Notes") {
+    const configPath = `${homedir()}/.config/memoant/config`;
+    if (existsSync(configPath)) {
+      const config = readFileSync(configPath, "utf-8");
+      const match = config.match(/^MEMOANT_NOTES_DIR="(.+)"$/m);
+      if (match) {
+        path = match[1];
+      }
+    }
+  }
+
+  return path.replace("~", homedir()).replace("$HOME", homedir());
 }
 
 export interface RecordingState {

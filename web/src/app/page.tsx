@@ -14,7 +14,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 mb-8 text-sm rounded-full glass text-muted opacity-0 animate-fade-in-up">
             <span className="w-2 h-2 bg-coral rounded-full" />
-            Open source &middot; 100% local &middot; macOS native
+            Open source &middot; Runs on your Mac &middot; macOS native
           </div>
 
           <h1 className="text-5xl sm:text-7xl font-bold tracking-tight mb-6 opacity-0 animate-fade-in-up animate-delay-100">
@@ -27,8 +27,7 @@ export default function Home() {
           <p className="text-lg sm:text-xl text-muted max-w-2xl mx-auto mb-10 opacity-0 animate-fade-in-up animate-delay-200">
             One-click recording. Automatic transcription with speaker
             identification. AI-powered metadata extraction. Everything organized
-            into Obsidian notes. No cloud. No accounts. Just your data, on your
-            machine.
+            into Obsidian notes. All processing happens on your Mac.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 opacity-0 animate-fade-in-up animate-delay-300">
@@ -70,7 +69,7 @@ export default function Home() {
             </h2>
             <p className="text-muted text-lg max-w-xl mx-auto">
               Record, transcribe, and organize meetings with zero configuration
-              and zero cloud dependencies.
+              with on-device AI processing.
             </p>
           </div>
 
@@ -192,7 +191,7 @@ export default function Home() {
                 </svg>
               }
               title="Privacy First"
-              description="No cloud. No accounts. No telemetry. Everything runs on your Mac. Your recordings never leave your machine."
+              description="No accounts. No telemetry. All AI processing on your Mac. Audio never leaves your machine."
               color="teal"
             />
           </div>
@@ -297,17 +296,17 @@ export default function Home() {
               <span className="text-teal">yours.</span>
             </h2>
             <p className="text-muted text-lg max-w-2xl mx-auto mb-8">
-              Memoant runs entirely on your Mac. There are no servers, no
-              accounts, no analytics, no telemetry. Audio is processed by
-              WhisperX on your hardware. Metadata is extracted by Ollama running
-              locally. Recordings are saved to your own Google Drive. Notes go
-              straight to your Obsidian vault. The code is open source so you
-              can verify every line.
+              All AI processing runs on your Mac. WhisperX transcribes audio
+              on your hardware. Ollama extracts metadata locally. No audio is
+              sent to external servers. Recordings save to your Google Drive.
+              Notes go straight to your Obsidian vault. Speaker diarization
+              uses a one-time model download from HuggingFace. The code is
+              open source so you can verify every line.
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 max-w-2xl mx-auto">
               <div className="text-center">
                 <div className="text-2xl font-bold text-teal">0</div>
-                <div className="text-sm text-muted">Cloud calls</div>
+                <div className="text-sm text-muted">Audio uploaded</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-teal">0</div>
@@ -354,50 +353,31 @@ export default function Home() {
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold mb-4">
-              Up and running in 5 minutes.
+              One command. Done.
             </h2>
             <p className="text-muted text-lg">
-              macOS 12.3+ required. Everything installs via Homebrew and pip.
+              macOS 12.3+ required. The installer handles everything.
             </p>
           </div>
 
           <div className="space-y-6">
             <InstallStep
               step={1}
-              title="Clone the repo"
-              code="git clone https://github.com/kylenorthup/meeting-recorder.git && cd meeting-recorder"
+              title="Run the installer"
+              code="curl -fsSL https://memoant.com/install.sh | bash"
             />
             <InstallStep
               step={2}
-              title="Install dependencies"
-              code={`brew install ffmpeg ollama
-pip3 install whisperx
-pip3 install torch==2.5.1 torchaudio==2.5.1
-ollama pull gpt-oss:20b`}
+              title="Add your HuggingFace token (optional, for speaker labels)"
+              code={`# Get a token from huggingface.co/settings/tokens
+# Accept terms at huggingface.co/pyannote/speaker-diarization-3.1
+# Add to ~/.env: HF_TOKEN=hf_your_token_here`}
             />
             <InstallStep
               step={3}
-              title="Set up speaker diarization (optional)"
-              code={`# Get a token from huggingface.co/settings/tokens
-# Accept terms at huggingface.co/pyannote/speaker-diarization-3.1
-echo 'export HF_TOKEN="your_token_here"' >> ~/.zshrc
-source ~/.zshrc`}
-            />
-            <InstallStep
-              step={4}
-              title="Compile native binaries"
-              code={`swiftc -o WindowRecorder WindowRecorder.swift \\
-  -framework ScreenCaptureKit -framework AVFoundation -framework AppKit
-swiftc -o WindowPicker WindowPickerThumbs.swift \\
-  -framework ScreenCaptureKit -framework Cocoa
-chmod +x WindowRecorder WindowPicker record-meeting.sh`}
-            />
-            <InstallStep
-              step={5}
-              title="Add to Raycast"
-              code={`# Open Raycast > Script Commands > Add Directories
-# Point to: ~/Code/meeting-recorder/raycast
-# Done. Search "Record" in Raycast to start.`}
+              title="Grant screen recording permission"
+              code={`# System Settings > Privacy & Security > Screen Recording
+# Enable: Terminal and/or Raycast`}
             />
           </div>
 

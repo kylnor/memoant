@@ -1,6 +1,6 @@
 import { showHUD, showToast, Toast } from "@raycast/api";
-import { exec } from "child_process";
-import { existsSync, unlinkSync } from "fs";
+import { spawn } from "child_process";
+import { existsSync, unlinkSync, openSync } from "fs";
 import { getScriptPath, getRecordingState, formatDuration } from "./shared";
 
 export default async function Command() {
@@ -20,11 +20,17 @@ export default async function Command() {
     message: `Duration: ${duration}. Processing will continue in background.`,
   });
 
-  exec(`"${scriptPath}" stop`, (error, _stdout, stderr) => {
-    if (error) {
-      console.error("Stop error:", stderr);
-    }
+  // Log output to file so we can debug failures
+  const logFile = "/tmp/meeting-recorder/stop.log";
+  const logFd = openSync(logFile, "w");
+
+  // Use spawn with detached so transcription can continue even if Raycast times out
+  const child = spawn(scriptPath, ["stop"], {
+    detached: true,
+    stdio: ["ignore", logFd, logFd],
+    env: { ...process.env, HOME: process.env.HOME || "" },
   });
+  child.unref();
 
   // Clean up start time file
   const startFile = "/tmp/meeting-recorder/recording.start";
@@ -36,5 +42,5 @@ export default async function Command() {
     }
   }
 
-  await showHUD(`Recording stopped (${duration}). Transcribing...`);
+  await showHUD(`Recording stopped (${duration}). Transcribing in background...`);
 }
