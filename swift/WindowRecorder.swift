@@ -89,6 +89,62 @@ class WindowRecorder {
         try await startRecording(window: windows[index - 1])
     }
 
+    func recordWindowByID(_ windowID: UInt32) async throws {
+        let availableContent = try await SCShareableContent.excludingDesktopWindows(
+            false,
+            onScreenWindowsOnly: true
+        )
+
+        guard let window = availableContent.windows.first(where: { $0.windowID == windowID }) else {
+            print("❌ Window not found (ID: \(windowID))")
+            exit(1)
+        }
+
+        try await startRecording(window: window)
+    }
+
+    func recordDesktop() async throws {
+        let availableContent = try await SCShareableContent.excludingDesktopWindows(
+            false,
+            onScreenWindowsOnly: true
+        )
+
+        guard let display = availableContent.displays.first else {
+            print("❌ No display found")
+            exit(1)
+        }
+
+        print("\n✅ Recording: Desktop (full screen)")
+
+        let filter = SCContentFilter(display: display, excludingWindows: [])
+
+        let config = SCStreamConfiguration()
+        config.width = Int(display.width) * 2
+        config.height = Int(display.height) * 2
+        config.pixelFormat = kCVPixelFormatType_32BGRA
+        config.showsCursor = true
+        config.capturesAudio = true
+        config.sampleRate = 48000
+        config.channelCount = 2
+
+        streamOutput = StreamOutput(outputURL: outputURL, config: config)
+        stream = SCStream(filter: filter, configuration: config, delegate: nil)
+
+        try stream?.addStreamOutput(
+            streamOutput!,
+            type: .screen,
+            sampleHandlerQueue: .global(qos: .userInteractive)
+        )
+        try stream?.addStreamOutput(
+            streamOutput!,
+            type: .audio,
+            sampleHandlerQueue: .global(qos: .userInteractive)
+        )
+
+        try await stream?.startCapture()
+        print("🎥 Recording started... Press Ctrl+C to stop")
+    }
+
     private func startRecording(window: SCWindow) async throws {
         let appName = window.owningApplication?.applicationName ?? "Unknown"
         let windowTitle = window.title ?? "Untitled"
@@ -261,17 +317,17 @@ if #available(macOS 12.3, *) {
     app.setActivationPolicy(.prohibited)  // Run headless without dock icon
 
     if CommandLine.arguments.count < 2 {
-        print("Usage: WindowRecorder <output-file.mp4> [window-index]")
+        print("Usage: WindowRecorder <output-file.mp4> [id:WINDOW_ID | desktop | window-index]")
         exit(1)
     }
 
     let outputPath = CommandLine.arguments[1]
     let outputURL = URL(fileURLWithPath: outputPath)
 
-    // Optional pre-selected window index
-    var preSelectedIndex: Int? = nil
+    // Parse optional window selector
+    var selector: String? = nil
     if CommandLine.arguments.count >= 3 {
-        preSelectedIndex = Int(CommandLine.arguments[2])
+        selector = CommandLine.arguments[2]
     }
 
     let recorder = WindowRecorder(outputURL: outputURL)
@@ -282,8 +338,18 @@ if #available(macOS 12.3, *) {
 
     Task {
         do {
-            if let index = preSelectedIndex {
-                try await recorder.recordWindow(at: index)
+            if let sel = selector {
+                if sel == "desktop" {
+                    try await recorder.recordDesktop()
+                } else if sel.hasPrefix("id:"), let wid = UInt32(sel.dropFirst(3)) {
+                    try await recorder.recordWindowByID(wid)
+                } else if let index = Int(sel) {
+                    try await recorder.recordWindow(at: index)
+                } else {
+                    print("❌ Invalid selector: \(sel)")
+                    print("Use: id:WINDOW_ID, desktop, or a numeric index")
+                    exit(1)
+                }
             } else {
                 try await recorder.selectAndRecordWindow()
             }

@@ -1,5 +1,6 @@
 .env*
 venv/
+.venv/
 node_modules/
 __pycache__/
 *.pyc
@@ -11,3 +12,7 @@ token.json
 .claude/
 dist/
 build/
+
+# Swift compiled binaries
+swift/WindowPicker
+swift/WindowRecorder

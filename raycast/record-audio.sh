@@ -11,4 +11,4 @@
 # @raycast.description Start recording audio-only meeting with automatic transcription
 # @raycast.author Kyle Northup
 
-~/Code/meeting-recorder/record-meeting.sh audio
+cd ~/Code/memoant && uv run memoant record --mode meeting

@@ -11,4 +11,4 @@
 # @raycast.description Stop current recording and process with transcription
 # @raycast.author Kyle Northup
 
-~/Code/meeting-recorder/record-meeting.sh stop
+cd ~/Code/memoant && uv run memoant stop

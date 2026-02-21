@@ -131,7 +131,7 @@ class WindowPickerController: NSObject, NSCollectionViewDataSource, NSCollection
     var windowToShow: NSWindow!
     var collectionView: NSCollectionView!
 
-    func showPicker() async -> Int? {
+    func showPicker() async -> String? {
         // Get available windows
         do {
             let availableContent = try await SCShareableContent.excludingDesktopWindows(
@@ -222,7 +222,7 @@ class WindowPickerController: NSObject, NSCollectionViewDataSource, NSCollection
     }
 
     @MainActor
-    func createAndShowWindow() -> Int? {
+    func createAndShowWindow() -> String? {
         // Create window - sized for exactly 3 columns
         // Math: (220 * 3) + (10 * 2) + 40 margins = 720px scrollview, 760px window
         let window = NSWindow(
@@ -334,7 +334,11 @@ class WindowPickerController: NSObject, NSCollectionViewDataSource, NSCollection
         window.close()
 
         if response == .OK {
-            return selectedIndex + 1 // Return 1-based index
+            let item = windows[selectedIndex]
+            if item.isDesktop {
+                return "desktop"
+            }
+            return "id:\(item.window.windowID)"
         } else {
             return nil
         }
@@ -387,8 +391,8 @@ if #available(macOS 12.3, *) {
     Task {
         let picker = WindowPickerController()
 
-        if let selectedIndex = await picker.showPicker() {
-            print("\(selectedIndex)")
+        if let selection = await picker.showPicker() {
+            print(selection)
             exit(0)
         } else {
             exit(1)

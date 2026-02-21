@@ -11,4 +11,4 @@
 # @raycast.description Start recording screen meeting with window selection and automatic transcription
 # @raycast.author Kyle Northup
 
-~/Code/meeting-recorder/record-meeting.sh screen
+cd ~/Code/memoant && uv run memoant record --screen
